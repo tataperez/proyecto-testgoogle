@@ -1,0 +1,106 @@
+buildscript {
+    ext {
+        // Usaremos variables para las versiones para facilitar la gestión
+        serenityCoreVersion = '4.0.1' // Actualizado a la última versión estable (a la fecha de mi conocimiento)
+        serenityGradlePluginVersion = '4.0.1' // Aseguramos que el plugin sea compatible con la versión de Serenity Core
+        seleniumVersion = '4.21.0' // Mantienes esta versión, es bastante reciente
+        webdriverManagerVersion = '5.8.0' // Mantienes esta versión
+        junitVersion = '5.10.2' // Actualizado a la última versión estable de JUnit 5
+        cucumberVersion = '7.18.0' // Versión compatible con Serenity 4.x
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("net.serenity-bdd:serenity-gradle-plugin:$serenityGradlePluginVersion")
+        // No es necesario especificar 'serenity-single-page-report' aquí si ya lo gestiona el plugin
+    }
+}
+
+plugins {
+    // Es mejor usar la variable definida en ext para la versión del plugin
+    id "net.serenity-bdd.serenity-gradle-plugin" version "${serenityGradlePluginVersion}"
+    id 'java'
+    id 'eclipse'
+    id 'idea'
+}
+
+defaultTasks 'clean', 'test', 'aggregate'
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+// Es importante mantener estas opciones actualizadas, aunque para Java 8 son warnings.
+// Si puedes, considera actualizar a una versión más reciente de Java (11 o superior).
+compileJava.options.encoding = "UTF-8"
+compileTestJava.options.encoding = "UTF-8"
+
+// Es recomendable usar una versión de Java más reciente si es posible para un mejor rendimiento y seguridad.
+// Por ahora, mantenemos la 1.8 según tu configuración, pero tenlo en cuenta para el futuro.
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // JUnit 5
+    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
+    testRuntimeOnly "org.junit.vintage:junit-vintage-engine:${junitVersion}" // Para compatibilidad de JUnit 4 con JUnit 5 en runtime
+
+    // **¡NUEVA DEPENDENCIA CLAVE!** Necesitamos JUnit 4 para la anotación @RunWith en compile-time.
+    testImplementation 'junit:junit:4.13.2' // Usamos la última versión de JUnit 4
+
+    // Serenity Core con exclusión explícita de Opera Driver (aunque con las últimas versiones, esto debería ser menos problemático)
+    implementation("net.serenity-bdd:serenity-core:${serenityCoreVersion}") {
+        exclude group: 'org.seleniumhq.selenium', module: 'selenium-opera-driver'
+    }
+    // Para Serenity 4.x, 'serenity-junit5' es la dependencia correcta para JUnit 5.
+    implementation("net.serenity-bdd:serenity-junit5:${serenityCoreVersion}")
+    // Aseguramos la compatibilidad con Cucumber 7.x
+    implementation("net.serenity-bdd:serenity-cucumber:${serenityCoreVersion}")
+    implementation("io.cucumber:cucumber-java:${cucumberVersion}")
+    implementation("io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}") // Necesario para JUnit 5 y Cucumber
+    implementation("io.cucumber:cucumber-core:${cucumberVersion}")
+
+    // Dependencias de Screenplay y Ensure
+    implementation("net.serenity-bdd:serenity-ensure:${serenityCoreVersion}")
+    implementation("net.serenity-bdd:serenity-screenplay:${serenityCoreVersion}")
+    implementation("net.serenity-bdd:serenity-screenplay-webdriver:${serenityCoreVersion}")
+    implementation("net.serenity-bdd:serenity-screenplay-rest:${serenityCoreVersion}")
+
+    // Selenium y WebDriverManager
+    // Al especificar selenium-chrome-driver directamente, le decimos a Serenity que esperamos usar Chrome.
+    // La exclusión del opera-driver aquí refuerza que no lo queremos.
+    implementation('org.seleniumhq.selenium:selenium-java:4.21.0') {
+        exclude group: 'org.seleniumhq.selenium', module: 'selenium-opera-driver'
+    }
+    implementation 'org.seleniumhq.selenium:selenium-chrome-driver:4.21.0' // Añadido explícitamente para Chrome
+    implementation 'io.github.bonigarcia:webdrivermanager:5.8.0' // Mantienes esta dependencia, útil para gestionar drivers
+}
+
+test {
+    useJUnitPlatform() // Importante para usar JUnit 5
+    testLogging.showStandardStreams = true
+    systemProperties System.getProperties()
+
+    // Configuración específica para Chrome en tiempo de ejecución de pruebas
+    systemProperty "webdriver.driver", "chrome"
+    // No necesitas webdriver.chrome.driver si usas WebDriverManager,
+    // pero si lo tuvieras, asegúrate de que esté configurado en serenity.conf
+    // systemProperty "webdriver.chrome.driver", "path/to/your/chromedriver.exe"
+}
+
+serenity {
+    // Asegúrate que esta ruta sea correcta para la base de tus tests y features
+    testRoot = "test.certificacionlogin" // Confirma que este es tu paquete raíz de tests
+    requirementsBaseDir = "src/test/resources/features"
+    reports = ["single-page-html"]
+    // Podrías añadir aquí configuración de drivers si no usas serenity.conf
+    // driver = "chrome"
+}
+
+gradle.startParameter.continueOnFailure = true
+test.finalizedBy(aggregate)
